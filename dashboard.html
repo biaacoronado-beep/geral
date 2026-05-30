@@ -22,12 +22,18 @@
   header h1{font-size:19px;margin:0;font-weight:700;letter-spacing:.3px}
   header .sub{color:#cbd5e1;font-size:12px;margin-top:2px}
   header .spacer{flex:1}
-  .tabs{display:flex;gap:6px;flex-wrap:wrap}
-  .tab-btn{background:rgba(255,255,255,.08);color:#cbd5e1;border:1px solid rgba(255,255,255,.15);
-       border-radius:9px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;
-       font-family:inherit;transition:all .15s}
-  .tab-btn:hover{background:rgba(255,255,255,.16);color:#fff}
-  .tab-btn.active{background:#fff;color:#1e3a8a;border-color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+  .navbtns{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:26px}
+  .navbtn{display:flex;align-items:center;gap:14px;background:#fff;border:2px solid var(--line);
+       border-radius:14px;padding:16px 20px;cursor:pointer;font-family:inherit;text-align:left;
+       box-shadow:var(--shadow);transition:all .15s;color:var(--ink)}
+  .navbtn:hover{border-color:var(--brand);transform:translateY(-2px);box-shadow:0 6px 16px rgba(37,99,235,.18)}
+  .navbtn .ic{font-size:30px;line-height:1}
+  .navbtn .tx{display:flex;flex-direction:column}
+  .navbtn .tx b{font-size:17px;font-weight:800}
+  .navbtn .tx small{font-size:12px;color:var(--muted);font-weight:600}
+  .navbtn.active{background:linear-gradient(110deg,#1e3a8a,#2563eb);border-color:#1e3a8a;color:#fff}
+  .navbtn.active .tx small{color:#cbd5e1}
+  @media(max-width:760px){.navbtns{grid-template-columns:1fr}}
   .tab-panel{display:none;animation:fade .25s ease}
   .tab-panel.active{display:block}
   @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -101,15 +107,19 @@
     <h1>📊 DASHBOARD OPERACIONAL</h1>
     <div class="sub">Supply Chain &amp; Comex · Estoque · Importação · Pedidos de Compra</div>
   </div>
-  <div class="spacer"></div>
-  <nav class="tabs">
-    <button class="tab-btn active" data-tab="tab1">📦 Estoque</button>
-    <button class="tab-btn" data-tab="tab2">🚢 Importação 2026</button>
-    <button class="tab-btn" data-tab="tab3">📝 Pedidos de Compra</button>
-  </nav>
 </header>
 
 <main>
+  <!-- ===================== BOTÕES DE NAVEGAÇÃO ===================== -->
+  <div class="navbtns">
+    <button class="navbtn active" data-tab="tab1">
+      <span class="ic">📦</span><span class="tx"><b>Estoque</b><small>Bloco 1</small></span></button>
+    <button class="navbtn" data-tab="tab2">
+      <span class="ic">🚢</span><span class="tx"><b>Importação</b><small>Bloco 2</small></span></button>
+    <button class="navbtn" data-tab="tab3">
+      <span class="ic">📝</span><span class="tx"><b>Pedidos de Compra</b><small>Bloco 3</small></span></button>
+  </div>
+
   <!-- ===================== BLOCO 1 ===================== -->
   <section class="tab-panel active" id="tab1">
   <div class="section-title"><span class="tag">BLOCO 1</span> Estoque</div>
@@ -587,7 +597,7 @@ pcRefresh();
 
 /* ===================== NAVEGAÇÃO POR ABAS ===================== */
 (function(){
-  const btns=document.querySelectorAll('.tab-btn');
+  const btns=document.querySelectorAll('.navbtn');
   const panels=document.querySelectorAll('.tab-panel');
   function activate(id){
     btns.forEach(b=>b.classList.toggle('active',b.dataset.tab===id));
