@@ -256,8 +256,8 @@
       </div>
     </div>
     <div class="panel">
-      <h3>Top 10 Linhas — Valor Pendente</h3>
-      <div class="chart-wrap tall"><canvas id="chPcLinha"></canvas></div>
+      <h3>Top 20 Linhas — Valor Pendente</h3>
+      <div class="chart-wrap" style="height:560px"><canvas id="chPcLinha"></canvas></div>
     </div>
   </div>
 
@@ -539,8 +539,8 @@ function pcRenderLinha(m){
   tf.innerHTML=`<tr><td>TOTAL</td><td class="num">${i0(Object.values(m.linG).reduce((s,v)=>s+v[0],0))}</td>
     <td class="num">${i0(m.qtd)}</td><td class="num">${i0(m.val)}</td>
     <td class="num">${i0(m.crit)}</td><td class="num">100%</td></tr>`;
-  // chart top10
-  const top=arr.slice(0,10);
+  // chart top20
+  const top=arr.slice(0,20);
   if(chPcLinha)chPcLinha.destroy();
   chPcLinha=new Chart(document.getElementById('chPcLinha'),{
     type:'bar',
