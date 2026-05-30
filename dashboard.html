@@ -22,6 +22,16 @@
   header h1{font-size:19px;margin:0;font-weight:700;letter-spacing:.3px}
   header .sub{color:#cbd5e1;font-size:12px;margin-top:2px}
   header .spacer{flex:1}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap}
+  .tab-btn{background:rgba(255,255,255,.08);color:#cbd5e1;border:1px solid rgba(255,255,255,.15);
+       border-radius:9px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;
+       font-family:inherit;transition:all .15s}
+  .tab-btn:hover{background:rgba(255,255,255,.16);color:#fff}
+  .tab-btn.active{background:#fff;color:#1e3a8a;border-color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+  .tab-panel{display:none;animation:fade .25s ease}
+  .tab-panel.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .tab-panel .section-title{margin-top:8px}
   .filterbox{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.1);
              padding:8px 12px;border-radius:10px}
   .filterbox label{font-size:12px;color:#cbd5e1}
@@ -89,17 +99,19 @@
 <header>
   <div>
     <h1>📊 DASHBOARD OPERACIONAL</h1>
-    <div class="sub">Supply Chain &amp; Comex · Estoque · Importação 2026</div>
+    <div class="sub">Supply Chain &amp; Comex · Estoque · Importação · Pedidos de Compra</div>
   </div>
   <div class="spacer"></div>
-  <div class="filterbox">
-    <label for="forn">Fornecedor:</label>
-    <select id="forn"></select>
-  </div>
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="tab1">📦 Estoque</button>
+    <button class="tab-btn" data-tab="tab2">🚢 Importação 2026</button>
+    <button class="tab-btn" data-tab="tab3">📝 Pedidos de Compra</button>
+  </nav>
 </header>
 
 <main>
   <!-- ===================== BLOCO 1 ===================== -->
+  <section class="tab-panel active" id="tab1">
   <div class="section-title"><span class="tag">BLOCO 1</span> Estoque</div>
 
   <div class="grid col-wide">
@@ -147,9 +159,19 @@
     </div>
   </div>
 
+  </section>
+
   <!-- ===================== BLOCO 2 ===================== -->
+  <section class="tab-panel" id="tab2">
   <div class="section-title"><span class="tag">BLOCO 2</span> Importação 2026
      <span id="fornEcho" style="font-weight:500;color:var(--muted);font-size:12px;text-transform:none;letter-spacing:0"></span></div>
+
+  <div class="panel" style="padding:12px 18px;margin-bottom:16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+    <div style="font-size:12px;color:var(--muted)">Embarques do ano de <b>2026</b> · valores em R$ · o filtro recalcula cards, gráfico e pendências.</div>
+    <div class="spacer" style="flex:1"></div>
+    <div class="filterbox light" style="background:#f1f5f9">
+      <label for="forn">Fornecedor:</label><select id="forn"></select></div>
+  </div>
 
   <div class="grid cards" id="kpiCards"></div>
 
@@ -192,7 +214,10 @@
     </div>
   </div>
 
+  </section>
+
   <!-- ===================== BLOCO 3 ===================== -->
+  <section class="tab-panel" id="tab3">
   <div class="section-title"><span class="tag">BLOCO 3</span> Pedidos de Compra em Aberto
      <span id="pcEcho" style="font-weight:500;color:var(--muted);font-size:12px;text-transform:none;letter-spacing:0"></span></div>
 
@@ -253,6 +278,8 @@
       </div>
     </div>
   </div>
+
+  </section>
 
   <div class="foot">
     Gerado a partir de <b>BASES_RELATORIOS_VBA_30.xlsm</b> · aba DASHBOARD ·
@@ -557,6 +584,24 @@ PCsel.addEventListener('change',pcRefresh);
 PLsel.addEventListener('change',pcRefresh);
 PCbusca.addEventListener('input',pcRenderBusca);
 pcRefresh();
+
+/* ===================== NAVEGAÇÃO POR ABAS ===================== */
+(function(){
+  const btns=document.querySelectorAll('.tab-btn');
+  const panels=document.querySelectorAll('.tab-panel');
+  function activate(id){
+    btns.forEach(b=>b.classList.toggle('active',b.dataset.tab===id));
+    panels.forEach(p=>p.classList.toggle('active',p.id===id));
+    // gráficos criados ocultos precisam recalcular tamanho ao aparecer
+    if(id==='tab2'&&chMensal) chMensal.resize();
+    if(id==='tab3'&&chPcLinha) chPcLinha.resize();
+    if(history.replaceState) history.replaceState(null,'','#'+id);
+  }
+  btns.forEach(b=>b.addEventListener('click',()=>activate(b.dataset.tab)));
+  // abre a aba indicada na URL (#tab2) se houver
+  const h=(location.hash||'').replace('#','');
+  if(['tab1','tab2','tab3'].includes(h)) activate(h);
+})();
 </script>
 </body>
 </html>
