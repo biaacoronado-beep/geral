@@ -76,6 +76,11 @@
   th:first-child,td:first-child{text-align:left}
   thead th{background:#f8fafc;color:var(--muted);font-weight:700;font-size:11px;
            text-transform:uppercase;letter-spacing:.3px;border-bottom:2px solid var(--line);position:sticky;top:0}
+  thead th.sortable{cursor:pointer;user-select:none;transition:color .12s}
+  thead th.sortable:hover{color:var(--brand)}
+  thead th.sortable .arr{font-size:9px;margin-left:4px;opacity:.35}
+  thead th.sortable.act{color:var(--brand)}
+  thead th.sortable.act .arr{opacity:1}
   tbody tr{border-bottom:1px solid #f1f5f9}
   tbody tr:hover{background:#f8fafc}
   tfoot td{font-weight:800;border-top:2px solid var(--line);background:#f8fafc}
@@ -611,6 +616,72 @@ pcRefresh();
   // abre a aba indicada na URL (#tab2) se houver
   const h=(location.hash||'').replace('#','');
   if(['tab1','tab2','tab3'].includes(h)) activate(h);
+})();
+
+/* ===================== ORDENAÇÃO DE TABELAS (clicar no cabeçalho) ===================== */
+(function(){
+  // extrai valor de uma célula: número (pt-BR) ou texto
+  function cellVal(td){
+    const raw=(td?td.textContent:'').trim();
+    if(raw===''||raw==='–') return {n:NaN,s:''};
+    let x=raw.replace(/r\$/i,'').replace(/%/g,'').trim();
+    if(/[a-zA-Z]/.test(x)) return {n:NaN,s:raw.toLowerCase()};      // tem letras -> texto
+    const cleaned=x.replace(/\./g,'').replace(',','.').replace(/[^0-9.-]/g,'');
+    const n=parseFloat(cleaned);
+    return {n:(cleaned!==''&&!isNaN(n))?n:NaN, s:raw.toLowerCase()};
+  }
+  function applySort(table){
+    const st=table.__sort; if(!st) return;
+    const tb=table.tBodies[0]; if(!tb) return;
+    if(table.__obs) table.__obs.disconnect();
+    const all=[...tb.rows];
+    const pin=all.filter(r=>r.cells[0]&&r.cells[0].textContent.trim().toUpperCase()==='TOTAL');
+    const rows=all.filter(r=>!pin.includes(r));
+    rows.sort((a,b)=>{
+      const A=cellVal(a.cells[st.col]),B=cellVal(b.cells[st.col]);
+      let c;
+      if(!isNaN(A.n)&&!isNaN(B.n)) c=A.n-B.n;
+      else if(!isNaN(A.n)) c=-1; else if(!isNaN(B.n)) c=1;
+      else c=A.s.localeCompare(B.s,'pt-BR');
+      return st.dir==='asc'?c:-c;
+    });
+    rows.concat(pin).forEach(r=>tb.appendChild(r));
+    if(table.__obs) table.__obs.observe(tb,{childList:true});
+  }
+  // calcula a coluna inicial de cada cabeçalho (considera colspan/rowspan)
+  function headerCells(thead){
+    const occ={};const out=[];
+    [...thead.rows].forEach((tr,r)=>{
+      let c=0;
+      [...tr.cells].forEach(cell=>{
+        while(occ[r+','+c]) c++;
+        const cs=cell.colSpan||1, rs=cell.rowSpan||1;
+        for(let i=0;i<rs;i++)for(let j=0;j<cs;j++) occ[(r+i)+','+(c+j)]=true;
+        if(cs===1) out.push({cell,col:c});   // só folhas (1 coluna) são ordenáveis
+        c+=cs;
+      });
+    });
+    return out;
+  }
+  document.querySelectorAll('main table').forEach(table=>{
+    const thead=table.tHead; if(!thead||!table.tBodies[0]) return;
+    const cells=headerCells(thead);
+    cells.forEach(({cell,col})=>{
+      cell.classList.add('sortable');
+      const arr=document.createElement('span'); arr.className='arr'; arr.textContent='⇅';
+      cell.appendChild(arr);
+      cell.addEventListener('click',()=>{
+        const dir=(table.__sort&&table.__sort.col===col&&table.__sort.dir==='desc')?'asc':'desc';
+        table.__sort={col,dir};
+        cells.forEach(c=>{c.cell.classList.remove('act');c.cell.querySelector('.arr').textContent='⇅';});
+        cell.classList.add('act'); arr.textContent=dir==='desc'?'▼':'▲';
+        applySort(table);
+      });
+    });
+    // reaplica ordenação quando a tabela é recalculada pelos filtros
+    const obs=new MutationObserver(()=>applySort(table));
+    table.__obs=obs; obs.observe(table.tBodies[0],{childList:true});
+  });
 })();
 </script>
 </body>
