@@ -717,38 +717,41 @@ pcRefresh();
     ].map(c=>`<div class="card ${c[0]}"><div class="lbl">${c[1]}</div>
          <div class="val">${c[2]}</div><div class="unit">${c[3]}</div></div>`).join('');
 
-    // Cenário 1 — falta de estoque (top 20 por B.O.)
+    // Cenário 1 — falta de estoque (top 20 por B.O.) + peças em processo
     const c1=rup.slice().sort((a,b)=>b[7]-a[7]).slice(0,20);
+    const proc=(v,cl)=> v>0?`<td class="num"><b style="color:${cl}">${i0(v)}</b></td>`:'<td class="num" style="color:#cbd5e1">–</td>';
     document.querySelector('#tblC1 tbody').innerHTML=c1.map((r,i)=>
       `<tr><td class="num" style="color:var(--muted)">${i+1}</td><td><b>${r[0]}</b></td>
         <td style="font-size:12px">${r[1]}</td><td style="font-size:12px">${r[2]}</td>
-        <td>${curva(r[3])}</td><td class="num">${i0(r[4])}</td><td class="num">${i0(r[8])}</td>
+        <td>${curva(r[3])}</td><td class="num">${i0(r[4])}</td>
+        ${proc(r[13],'#0891b2')}${proc(r[14],'#b45309')}<td class="num">${i0(r[8])}</td>
         ${covCell(r[4],r[8])}<td class="num"><b style="color:var(--red)">${i0(r[7])}</b></td></tr>`).join('')
-      || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:18px">Nenhum produto em ruptura nesta linha.</td></tr>';
+      || '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:18px">Nenhum produto em ruptura nesta linha.</td></tr>';
 
-    // Cenário 2 — em falta e chegando em IP (prioridade por B.O.)
+    // Cenário 2 — em falta e chegando em IP (linha clicável p/ ver IPs)
     const c2=rup.filter(r=>r[5]>0).sort((a,b)=>b[7]-a[7]).slice(0,20);
     document.querySelector('#tblC2 tbody').innerHTML=c2.map((r,i)=>
-      `<tr><td><span class="crit-tag" style="background:#fff7ed;color:#c2410c">${i+1}º</span></td>
-        <td><b>${r[0]}</b></td><td style="font-size:12px">${r[1]}</td><td>${curva(r[3])}</td>
+      `<tr class="c2row" data-cod="${r[0].toUpperCase()}" title="Clique para ver as IPs"><td><span class="crit-tag" style="background:#fff7ed;color:#c2410c">${i+1}º</span></td>
+        <td><b>${r[0]}</b> <span class="exp">▸</span></td><td style="font-size:12px">${r[1]}</td><td>${curva(r[3])}</td>
         <td class="num"><b style="color:var(--red)">${i0(r[7])}</b></td>
         <td class="num">${i0(r[4])}</td><td class="num">${i0(r[8])}</td>
         <td class="num"><b style="color:var(--green)">${i0(r[5])}</b></td><td class="num">${i0(r[6])}</td>
         ${covCell(r[4]+r[5],r[8])}</tr>`).join('')
       || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:18px">Nenhum item em ruptura com importação a caminho nesta linha.</td></tr>';
 
-    // Cenário 3 — baixo c/ importação + saldo PC (prioridade fornecedor)
-    const c3=rs.filter(r=>r[9]>0&&r[8]>0&&(r[4]+r[5])/r[8]<2)
-               .sort((a,b)=>(b[8]*2-(b[4]+b[5]))-(a[8]*2-(a[4]+a[5]))).slice(0,20);
+    // Cenário 3 — saldo de estoque negativo + saldo PC (prioridade fornecedor)
+    const saldoEst=r=>(r[12]+r[5])-(2*r[8]+r[7]);
+    const c3=rs.filter(r=>r[9]>0&&r[8]>0&&saldoEst(r)/r[8]<0)
+               .sort((a,b)=>saldoEst(a)-saldoEst(b)).slice(0,20);
     document.querySelector('#tblC3 tbody').innerHTML=c3.map((r,i)=>{
-      const proj=r[4]+r[5];
+      const se=saldoEst(r), cob=se/r[8];
       return `<tr><td><span class="crit-tag" style="background:#f5f3ff;color:#6d28d9">${i+1}º</span></td>
         <td><b>${r[0]}</b></td><td style="font-size:12px">${r[1]}</td><td>${curva(r[3])}</td>
-        <td class="num">${i0(r[4])}</td><td class="num">${i0(r[5])}</td><td class="num">${i0(proj)}</td>
-        <td class="num">${i0(r[8])}</td>${covCell(proj,r[8])}
-        <td class="num">${i0(r[7])}</td><td class="num"><b>${i0(r[9])}</b></td>
-        <td style="font-size:12px">${r[11]}</td></tr>`;}).join('')
-      || '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:18px">Nenhum item baixo com saldo de PC nesta linha.</td></tr>';
+        <td class="num">${i0(r[12])}</td><td class="num">${i0(r[5])}</td><td class="num">${i0(r[8])}</td>
+        <td class="num">${i0(r[7])}</td><td class="num"><b style="color:var(--red)">${i0(se)}</b></td>
+        <td><span class="pill cov-low">${nf1.format(cob)}</span></td>
+        <td class="num"><b>${i0(r[9])}</b></td><td style="font-size:12px">${r[11]}</td></tr>`;}).join('')
+      || '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:18px">Nenhum item com saldo negativo e saldo de PC nesta linha.</td></tr>';
   }
   // clique numa linha do Cenário 2 -> expande mostrando as IPs do produto
   document.querySelector('#tblC2 tbody').addEventListener('click',e=>{
