@@ -398,7 +398,8 @@
       <h3>🟣 Cenário 3 — Baixos mesmo com Importação + têm Saldo de PC → Prioridade ao Fornecedor</h3>
       <div class="scn-note"><b>Saldo Estoque</b> = (Est. Total + Chegando) − (2 × Média 3M + B.O.) · <b>Cobertura</b> = Saldo Estoque ÷ Média 3M.
         Lista itens com cobertura <b>negativa</b> (não cobrem 2 meses de venda + o B.O. nem somando a importação) que ainda têm <b>saldo de PC em aberto</b>.
-        A <b>Prioridade</b> segue o maior déficit — peça ao fornecedor para <b>antecipar</b> estes itens.</div>
+        A <b>Prioridade</b> segue o maior déficit — peça ao fornecedor para <b>antecipar</b> estes itens.
+        👉 <b>Clique na linha</b> para abrir os <b>pedidos em atraso</b> daquele produto (pedido, qtd e data prev. de entrega — apenas os vencidos no mês ref.).</div>
       <div class="scroll">
       <table id="tblC3">
         <thead><tr><th>Prioridade</th><th>Código</th><th>Descrição</th><th>Curva</th>
@@ -729,6 +730,9 @@ pcRefresh();
 /* ===================== BLOCO 4: CENÁRIOS CRÍTICOS ===================== */
 (function(){
   // produto: 0 cod,1 desc,2 linha,3 curva,4 disp,5 cheg,6 nips,7 bo,8 m3,9 saldo,10 crit,11 forn
+  // pedidos de compra EM ATRASO por código (PC: 4 crit=1 -> vencido vs data prev.; 5 prod,6 pedido,2 qtd,8 dprev)
+  const atrasoByCod={};
+  PC.rows.forEach(r=>{ if(r[4]===1){ (atrasoByCod[String(r[5]).toUpperCase()] ||= []).push(r); } });
   const curva=c=>{const k=({A:'cvA',B:'cvB',C:'cvC'})[c]||'cvX';
     return `<span class="curva ${k}">${c||'–'}</span>`;};
   function covCell(disp,m3){
@@ -789,8 +793,9 @@ pcRefresh();
                .sort((a,b)=>saldoEst(a)-saldoEst(b)).slice(0,20);
     document.querySelector('#tblC3 tbody').innerHTML=c3.map((r,i)=>{
       const se=saldoEst(r), cob=se/r[8];
-      return `<tr><td><span class="crit-tag" style="background:#f5f3ff;color:#6d28d9">${i+1}º</span></td>
-        <td><b>${r[0]}</b></td><td style="font-size:12px">${r[1]}</td><td>${curva(r[3])}</td>
+      const cod=r[0].toUpperCase(), nAtr=(atrasoByCod[cod]||[]).length;
+      return `<tr class="${nAtr?'c3row':''}" data-cod="${cod}"${nAtr?' title="Clique para ver os pedidos em atraso"':''}><td><span class="crit-tag" style="background:#f5f3ff;color:#6d28d9">${i+1}º</span></td>
+        <td><b>${r[0]}</b>${nAtr?' <span class="exp">▸</span>':''}</td><td style="font-size:12px">${r[1]}</td><td>${curva(r[3])}</td>
         <td class="num">${i0(r[12])}</td><td class="num">${i0(r[5])}</td><td class="num">${i0(r[8])}</td>
         <td class="num">${i0(r[7])}</td><td class="num"><b style="color:var(--red)">${i0(se)}</b></td>
         <td><span class="pill cov-low">${nf1.format(cob)}</span></td>
@@ -830,6 +835,25 @@ pcRefresh();
         list.map(x=>`<tr><td><b>${x[0]}</b></td><td><span class="stq stq${stClass(x[2])}">${x[2]}</span></td><td class="num">${x[3]||'–'}</td><td class="num">${i0(x[1])}</td></tr>`).join('')+`</tbody></table>`
       : '<div style="color:var(--muted);padding:6px">Sem detalhe de IP disponível.</div>';
     det.innerHTML=`<td colspan="10" style="background:#f8fafc;padding:8px 14px"><div style="font-size:12px;color:var(--slate);margin-bottom:6px">IPs em aberto com <b>${tr.dataset.cod}</b>:</div>${inner}</td>`;
+    tr.after(det);
+  });
+  // clique numa linha do Cenário 3 -> expande mostrando os pedidos EM ATRASO do produto
+  document.querySelector('#tblC3 tbody').addEventListener('click',e=>{
+    const tr=e.target.closest('.c3row'); if(!tr)return;
+    const nx=tr.nextElementSibling;
+    if(nx&&nx.classList.contains('atrdet')){nx.remove();const x=tr.querySelector('.exp');if(x)x.textContent='▸';return;}
+    document.querySelectorAll('#tblC3 .atrdet').forEach(x=>x.remove());
+    document.querySelectorAll('#tblC3 .exp').forEach(x=>x.textContent='▸');
+    const list=(atrasoByCod[tr.dataset.cod]||[]).slice().sort((a,b)=>a[8]-b[8]);
+    const ex=tr.querySelector('.exp'); if(ex)ex.textContent='▾';
+    const det=document.createElement('tr'); det.className='atrdet';
+    const totQ=list.reduce((s,x)=>s+x[2],0);
+    const inner=list.length
+      ? `<table class="subip"><thead><tr><th>Pedido</th><th>Qtd em atraso</th><th>Data prev. entrega</th><th>Fornecedor</th></tr></thead><tbody>`+
+        list.map(x=>`<tr><td><b>${x[6]}</b></td><td class="num">${i0(x[2])}</td><td><span class="stq stq0" style="background:#fef2f2;color:#b91c1c">${xlDate(x[8])}</span></td><td style="font-size:12px">${x[0]}</td></tr>`).join('')+
+        `<tr><td><b>TOTAL (${list.length} pedido${list.length>1?'s':''})</b></td><td class="num"><b>${i0(totQ)}</b></td><td colspan="2"></td></tr></tbody></table>`
+      : '<div style="color:var(--muted);padding:6px">Sem pedidos em atraso para este item.</div>';
+    det.innerHTML=`<td colspan="12" style="background:#f8fafc;padding:8px 14px"><div style="font-size:12px;color:var(--slate);margin-bottom:6px">Pedidos de compra <b>em atraso</b> de <b>${tr.dataset.cod}</b> (vencidos vs. data prevista):</div>${inner}</td>`;
     tr.after(det);
   });
   sel.value='<TODAS>';
