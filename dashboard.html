@@ -55,6 +55,28 @@
   .filterbox label{font-size:12px;color:#cbd5e1}
   .filterbox select{background:#fff;color:var(--ink);border:none;border-radius:6px;
              padding:6px 10px;font-size:13px;font-weight:600;min-width:200px;cursor:pointer}
+  /* multi-select component */
+  .msel{position:relative;display:inline-block;min-width:220px}
+  .msel-btn{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;
+       background:#fff;color:var(--ink);border:none;border-radius:6px;padding:6px 10px;
+       font-size:13px;font-weight:600;cursor:pointer;text-align:left}
+  .msel-lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px}
+  .msel-caret{color:var(--muted);font-size:11px}
+  .msel-pop{display:none;position:absolute;z-index:50;top:calc(100% + 4px);left:0;min-width:280px;max-width:360px;
+       background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px rgba(15,23,42,.18);padding:8px}
+  .msel.open .msel-pop{display:block}
+  .msel-search{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:6px;
+       padding:6px 8px;font-size:12px;margin-bottom:6px}
+  .msel-list{max-height:260px;overflow:auto}
+  .msel-opt{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:5px;
+       font-size:13px;color:var(--ink);font-weight:500;cursor:pointer}
+  .msel-opt:hover{background:#f1f5f9}
+  .msel-opt input{cursor:pointer;margin:0}
+  .msel-all{font-weight:700;border-bottom:1px solid var(--line);border-radius:0;margin-bottom:4px;padding-bottom:7px}
+  .msel-actions{display:flex;gap:6px;margin-top:6px;border-top:1px solid var(--line);padding-top:6px}
+  .msel-actions button{flex:1;border:1px solid var(--line);background:#f8fafc;border-radius:6px;
+       padding:5px;font-size:11px;font-weight:600;color:var(--slate);cursor:pointer}
+  .msel-actions button:hover{background:#eef2f7}
   main{max-width:1320px;margin:0 auto;padding:24px 20px 60px}
   .section-title{font-size:15px;font-weight:700;color:var(--brand2);
        text-transform:uppercase;letter-spacing:.5px;margin:34px 0 14px;
@@ -440,6 +462,51 @@ const brlC = v => brl.format(v);
 const i0 = v => nf0.format(Math.round(v));
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
+/* ===================== FILTRO MULTI-SELEÇÃO (reutilizável) =====================
+   Substitui um <select> por um dropdown de checkboxes com busca e "Todos".
+   get() -> Set dos selecionados, ou null quando "Todos" (nenhum marcado). */
+function makeMultiSelect(selectEl, items, allLabel, onChange){
+  const selected=new Set();
+  const wrap=document.createElement('div'); wrap.className='msel';
+  const btn=document.createElement('button'); btn.type='button'; btn.className='msel-btn';
+  const lbl=document.createElement('span'); lbl.className='msel-lbl';
+  const caret=document.createElement('span'); caret.className='msel-caret'; caret.textContent='▾';
+  btn.append(lbl,caret);
+  const pop=document.createElement('div'); pop.className='msel-pop';
+  const search=document.createElement('input'); search.className='msel-search'; search.type='text'; search.placeholder='filtrar…';
+  const allRow=document.createElement('label'); allRow.className='msel-opt msel-all';
+  const allCb=document.createElement('input'); allCb.type='checkbox'; allCb.checked=true;
+  allRow.append(allCb,Object.assign(document.createElement('span'),{textContent:allLabel}));
+  const list=document.createElement('div'); list.className='msel-list';
+  const cbs=[];
+  items.forEach(it=>{
+    const lab=document.createElement('label'); lab.className='msel-opt';
+    const cb=document.createElement('input'); cb.type='checkbox';
+    lab.append(cb,Object.assign(document.createElement('span'),{textContent:it}));
+    list.append(lab); cbs.push({cb,it,lab});
+    cb.addEventListener('change',()=>{ cb.checked?selected.add(it):selected.delete(it); sync(); onChange&&onChange(); });
+  });
+  allCb.addEventListener('change',()=>{ selected.clear(); cbs.forEach(o=>o.cb.checked=false); sync(); onChange&&onChange(); });
+  search.addEventListener('input',()=>{ const q=search.value.trim().toUpperCase();
+    cbs.forEach(o=>o.lab.style.display=o.it.toUpperCase().includes(q)?'':'none'); });
+  const actions=document.createElement('div'); actions.className='msel-actions';
+  const bClear=document.createElement('button'); bClear.type='button'; bClear.textContent='Limpar';
+  bClear.addEventListener('click',()=>{ selected.clear(); cbs.forEach(o=>o.cb.checked=false); sync(); onChange&&onChange(); });
+  const bClose=document.createElement('button'); bClose.type='button'; bClose.textContent='Fechar';
+  bClose.addEventListener('click',()=>wrap.classList.remove('open'));
+  actions.append(bClear,bClose);
+  pop.append(search,allRow,list,actions);
+  wrap.append(btn,pop);
+  selectEl.replaceWith(wrap);
+  function sync(){ allCb.checked=selected.size===0;
+    lbl.textContent = selected.size===0?allLabel : selected.size===1?[...selected][0] : selected.size+' selecionados'; }
+  btn.addEventListener('click',e=>{ e.stopPropagation(); wrap.classList.toggle('open'); });
+  pop.addEventListener('click',e=>e.stopPropagation());
+  document.addEventListener('click',e=>{ if(!wrap.contains(e.target)) wrap.classList.remove('open'); });
+  sync();
+  return { get:()=>selected.size?selected:null };
+}
+
 /* ===================== BLOCO 1: MÉTRICAS GERAIS ===================== */
 (function(){
   document.getElementById('mcEst').textContent = i0(METRICAS.est);
@@ -495,20 +562,15 @@ const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov'
 
 /* ===================== BLOCO 2: IMPORTAÇÃO (recalcula por fornecedor) ===================== */
 let chMensal=null;
-const sel=document.getElementById('forn');
+let mForn=null;
 
-function buildSupplierList(){
-  const opts=['<TODOS>'].concat(DB.suppliers);
-  sel.innerHTML=opts.map(s=>`<option value="${s}">${s==='<TODOS>'?'‹ TODOS ›':s}</option>`).join('');
+function rowsFor(){
+  const s=mForn&&mForn.get();
+  return s ? DB.rows.filter(r=>s.has(r[0])) : DB.rows;
 }
 
-function rowsFor(forn){
-  if(forn==='<TODOS>') return DB.rows;
-  return DB.rows.filter(r=>r[0]===forn);
-}
-
-function compute(forn){
-  const rs=rowsFor(forn);
+function compute(){
+  const rs=rowsFor();
   const PEND = r => r[2]!=='03-Entregue';
   let qEmb=0,vEmb=0,qPend=0,vPend=0,diasSum=0,diasN=0;
   const ips=new Set();
@@ -599,21 +661,18 @@ function renderPend(m){
 }
 
 function refresh(){
-  const forn=sel.value;
-  const m=compute(forn);
+  const m=compute();
+  const s=mForn&&mForn.get();
   document.getElementById('fornEcho').textContent =
-     forn==='<TODOS>' ? '· todos os fornecedores' : '· '+forn;
+     !s ? '· todos os fornecedores' : s.size===1 ? '· '+[...s][0] : '· '+s.size+' fornecedores';
   renderKPIs(m); renderMensal(m); renderPend(m);
 }
 
-buildSupplierList();
-sel.value='<TODOS>';
-sel.addEventListener('change',refresh);
+mForn=makeMultiSelect(document.getElementById('forn'),DB.suppliers,'‹ TODOS ›',refresh);
 refresh();
 
 /* ===================== BLOCO 3: PEDIDOS DE COMPRA EM ABERTO ===================== */
-const PCsel=document.getElementById('pcForn');
-const PLsel=document.getElementById('pcLinha');
+let mPcForn=null, mPcLinha=null;
 const PCbusca=document.getElementById('pcBusca');
 let chPcLinha=null;
 // excel serial -> dd/mm/aaaa
@@ -622,15 +681,9 @@ function xlDate(s){
   const d=new Date(Date.UTC(1899,11,30)+s*86400000);
   return ('0'+d.getUTCDate()).slice(-2)+'/'+('0'+(d.getUTCMonth()+1)).slice(-2)+'/'+d.getUTCFullYear();
 }
-function pcBuildFilters(){
-  PCsel.innerHTML=['<TODOS>'].concat(PC.suppliers).map(s=>
-     `<option value="${s}">${s==='<TODOS>'?'‹ TODOS ›':s}</option>`).join('');
-  PLsel.innerHTML=['<TODAS>'].concat(PC.linhas).map(s=>
-     `<option value="${s}">${s==='<TODAS>'?'‹ TODAS ›':s}</option>`).join('');
-}
 function pcRows(){
-  const f=PCsel.value,l=PLsel.value;
-  return PC.rows.filter(r=>(f==='<TODOS>'||r[0]===f)&&(l==='<TODAS>'||r[1]===l));
+  const f=mPcForn&&mPcForn.get(), l=mPcLinha&&mPcLinha.get();
+  return PC.rows.filter(r=>(!f||f.has(r[0]))&&(!l||l.has(r[1])));
 }
 function pcCompute(){
   const rs=pcRows();let qtd=0,val=0,crit=0;const linG={},fornG={};
@@ -715,15 +768,14 @@ function pcRenderBusca(){
 }
 function pcRefresh(){
   const m=pcCompute();
-  const f=PCsel.value,l=PLsel.value;
-  document.getElementById('pcEcho').textContent='· '+
-     (f==='<TODOS>'?'todos os fornecedores':f)+' / '+(l==='<TODAS>'?'todas as linhas':l);
+  const f=mPcForn&&mPcForn.get(), l=mPcLinha&&mPcLinha.get();
+  const fTxt = !f?'todos os fornecedores':f.size===1?[...f][0]:f.size+' fornecedores';
+  const lTxt = !l?'todas as linhas':l.size===1?[...l][0]:l.size+' linhas';
+  document.getElementById('pcEcho').textContent='· '+fTxt+' / '+lTxt;
   pcRenderKPIs(m);pcRenderLinha(m);pcRenderForn(m);pcRenderBusca();
 }
-pcBuildFilters();
-PCsel.value='<TODOS>';PLsel.value='<TODAS>';
-PCsel.addEventListener('change',pcRefresh);
-PLsel.addEventListener('change',pcRefresh);
+mPcForn=makeMultiSelect(document.getElementById('pcForn'),PC.suppliers,'‹ TODOS ›',pcRefresh);
+mPcLinha=makeMultiSelect(document.getElementById('pcLinha'),PC.linhas,'‹ TODAS ›',pcRefresh);
 PCbusca.addEventListener('input',pcRenderBusca);
 pcRefresh();
 
@@ -741,14 +793,12 @@ pcRefresh();
     if(cob<1.5)cls='cov-low'; else if(cob<3)cls='cov-mid'; else if(cob>6)cls='cov-high';
     return `<td><span class="pill ${cls}">${nf1.format(cob)}</span></td>`;
   }
-  const sel=document.getElementById('b4Linha');
-  sel.innerHTML=['<TODAS>'].concat(B4.linhas).map(s=>
-     `<option value="${s}">${s==='<TODAS>'?'‹ TODAS AS LINHAS ›':s}</option>`).join('');
+  let mB4=null;
 
-  function rowsFor(l){ return l==='<TODAS>'?B4.rows:B4.rows.filter(r=>r[2]===l); }
+  function rowsFor(){ const s=mB4&&mB4.get(); return s?B4.rows.filter(r=>s.has(r[2])):B4.rows; }
 
   function render(){
-    const rs=rowsFor(sel.value);
+    const rs=rowsFor();
     // KPIs (recalculados para a linha)
     const rup=rs.filter(r=>r[7]>0);
     const k={ruptura:rup.length, bo:rup.reduce((s,r)=>s+r[7],0),
@@ -856,8 +906,7 @@ pcRefresh();
     det.innerHTML=`<td colspan="12" style="background:#f8fafc;padding:8px 14px"><div style="font-size:12px;color:var(--slate);margin-bottom:6px">Pedidos de compra <b>em atraso</b> de <b>${tr.dataset.cod}</b> (vencidos vs. data prevista):</div>${inner}</td>`;
     tr.after(det);
   });
-  sel.value='<TODAS>';
-  sel.addEventListener('change',render);
+  mB4=makeMultiSelect(document.getElementById('b4Linha'),B4.linhas,'‹ TODAS AS LINHAS ›',render);
   render();
 })();
 
